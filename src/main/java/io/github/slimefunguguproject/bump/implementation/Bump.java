@@ -160,14 +160,7 @@ public final class Bump extends AbstractAddon {
     @Override
     protected void autoUpdate() {
         try {
-            // use updater in lib plugin
-            Class<?> clazz = Class.forName("net.guizhanss.guizhanlibplugin.updater.GuizhanUpdater");
-            Method updaterStart = clazz.getDeclaredMethod("start", Plugin.class, File.class, String.class, String.class, String.class);
-            updaterStart.invoke(null, this, getFile(), getGithubUser(), getGithubRepo(), getGithubBranch());
-        } catch (Exception ignored) {
-            // use updater in lib
-            new GuizhanBuildsUpdater(this, getFile(), getGithubUser(), getGithubRepo(), getGithubBranch()).start();
-        }
+
     }
 
     @Nonnull
