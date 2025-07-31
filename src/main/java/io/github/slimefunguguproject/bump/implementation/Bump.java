@@ -159,7 +159,6 @@ public final class Bump extends AbstractAddon {
 
     @Override
     protected void autoUpdate() {
-        try {
 
     }
 
