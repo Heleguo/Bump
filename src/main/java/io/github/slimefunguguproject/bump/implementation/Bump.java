@@ -149,10 +149,7 @@ public final class Bump extends AbstractAddon {
         // tasks
         WeaponProjectileTask.start();
 
-        // Metrics setup
-        final Metrics metrics = new Metrics(this, 14870);
-        metrics.addCustomChart(new SimplePie("server_language", () -> lang));
-        metrics.addCustomChart(new SimplePie("enable_research", () -> enableResearch ? "enabled" : "disabled"));
+
     }
 
     @Override
