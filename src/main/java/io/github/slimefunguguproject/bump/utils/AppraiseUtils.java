@@ -97,7 +97,7 @@ public final class AppraiseUtils {
         Preconditions.checkArgument(attribute != null, "Attribute cannot be null");
 
         return switch (attribute) {
-            case MOVEMENT_SPEED, JUMP_STRENGTH -> AttributeModifier.Operation.ADD_SCALAR;
+            case Attribute.MOVEMENT_SPEED, Attribute.JUMP_STRENGTH -> AttributeModifier.Operation.ADD_SCALAR;
             default -> AttributeModifier.Operation.ADD_NUMBER;
         };
     }
