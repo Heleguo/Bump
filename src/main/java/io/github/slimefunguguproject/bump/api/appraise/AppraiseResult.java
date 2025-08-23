@@ -100,9 +100,16 @@ public final class AppraiseResult {
                 // Check if the material is applicable for slot
                 BumpTag tag = BumpTag.getTag(slot.name() + "_SLOT");
                 if (tag.isTagged(material)) {
-                    meta.addAttributeModifier(attr,
-                        new AttributeModifier(UUID.randomUUID(), appraiseType.getKey().toString(), entry.getValue(), AppraiseUtils.getOperation(attr), slot)
-                    );
+                    // 使用新的AttributeModifier构建器模式替代已弃用的构造函数
+                    AttributeModifier modifier = AttributeModifier.builder()
+                        .uuid(UUID.randomUUID())
+                        .name(appraiseType.getKey().toString())
+                        .amount(entry.getValue())
+                        .operation(AppraiseUtils.getOperation(attr))
+                        .slot(slot)
+                        .build();
+                    
+                    meta.addAttributeModifier(attr, modifier);
                 }
             }
         }
