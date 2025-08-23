@@ -16,7 +16,6 @@ import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.EquipmentSlot;
-import org.bukkit.inventory.EquipmentSlotGroup;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
@@ -167,7 +166,8 @@ public final class AttributeGrindstone extends SimpleMenuBlock {
             boolean removedAny = false;
             for (EquipmentSlot slot : EquipmentSlot.values()) {
                 if (BumpTag.getTag(slot.name() + "_SLOT").isTagged(itemStack.getType())) {
-                    if (meta.removeAttributeModifier(slot) != null) {
+                    // 修复：直接检查removeAttributeModifier的布尔返回值
+                    if (meta.removeAttributeModifier(slot)) {
                         removedAny = true;
                     }
                 }
@@ -177,7 +177,8 @@ public final class AttributeGrindstone extends SimpleMenuBlock {
                 Multimap<Attribute, AttributeModifier> modifiers = meta.getAttributeModifiers();
                 if (modifiers != null && !modifiers.isEmpty()) {
                     for (Attribute attribute : modifiers.keySet()) {
-                        if (meta.removeAttributeModifier(attribute) != null) {
+                        // 修复：直接检查removeAttributeModifier的布尔返回值
+                        if (meta.removeAttributeModifier(attribute)) {
                             removedAny = true;
                         }
                     }
