@@ -28,7 +28,7 @@ jobs:
       - name: Build with Gradle
         uses: gradle/gradle-build-action@v3
         with:
-          arguments: shadowJar
+          arguments: shadowJar --enable-preview
 
       - name: Get build artifact ready
         run: mkdir staging && cp build/libs/*.jar staging
