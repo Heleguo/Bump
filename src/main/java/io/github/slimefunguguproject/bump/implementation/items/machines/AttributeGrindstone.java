@@ -3,6 +3,7 @@ package io.github.slimefunguguproject.bump.implementation.items.machines;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
 
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -107,23 +108,31 @@ public final class AttributeGrindstone extends SimpleMenuBlock {
         }
 
         ItemStack output = item.clone();
-        clearAttributes(output);
-        blockMenu.replaceExistingItem(getInputSlot(), null);
-        blockMenu.pushItem(output, getOutputSlot());
+        if (clearAttributes(output)) {
+            blockMenu.replaceExistingItem(getInputSlot(), null);
+            blockMenu.pushItem(output, getOutputSlot());
 
-        setCharge(blockMenu.getLocation(), charge - ENERGY_CONSUMPTION);
-        Bump.getLocalization().sendMessage(p, "machine.attribute-grindstone.success");
-        BumpSound.ATTRIBUTE_GRINDSTONE_SUCCEED.playFor(p);
+            setCharge(blockMenu.getLocation(), charge - ENERGY_CONSUMPTION);
+            Bump.getLocalization().sendMessage(p, "machine.attribute-grindstone.success");
+            BumpSound.ATTRIBUTE_GRINDSTONE_SUCCEED.playFor(p);
+        } else {
+            Bump.getLocalization().sendMessage(p, "machine.attribute-grindstone.failed");
+            BumpSound.ATTRIBUTE_GRINDSTONE_FAIL.playFor(p);
+        }
     }
 
-    private void clearAttributes(@Nonnull ItemStack itemStack) {
+    private boolean clearAttributes(@Nonnull ItemStack itemStack) {
         ItemMeta meta = itemStack.getItemMeta();
-        if (meta == null) return;
+        if (meta == null) return false;
         
         // check the appraising version
         byte version = PersistentDataAPI.getByte(meta, Keys.APPRAISE_VERSION, (byte) 1);
 
-        removeModifiers(itemStack, meta, version);
+        boolean success = removeModifiers(itemStack, meta, version);
+        if (!success) {
+            Bump.getInstance().getLogger().log(Level.WARNING, "Failed to remove modifiers from item");
+            return false;
+        }
 
         // set pdc
         PersistentDataAPI.setBoolean(meta, Keys.APPRAISABLE, true);
@@ -148,67 +157,95 @@ public final class AttributeGrindstone extends SimpleMenuBlock {
 
         // done
         itemStack.setItemMeta(meta);
+        return true;
     }
 
     @ParametersAreNonnullByDefault
-    private void removeModifiers(ItemStack itemStack, ItemMeta meta, byte version) {
+    private boolean removeModifiers(ItemStack itemStack, ItemMeta meta, byte version) {
         if (version == 1) {
             // legacy version, remove all attribute modifiers
+            boolean removedAny = false;
             for (EquipmentSlot slot : EquipmentSlot.values()) {
                 if (BumpTag.getTag(slot.name() + "_SLOT").isTagged(itemStack.getType())) {
-                    meta.removeAttributeModifier(slot);
+                    if (meta.removeAttributeModifier(slot) != null) {
+                        removedAny = true;
+                    }
                 }
             }
             // Additional cleanup for any remaining modifiers
             if (meta.hasAttributeModifiers()) {
                 Multimap<Attribute, AttributeModifier> modifiers = meta.getAttributeModifiers();
-                if (modifiers != null) {
+                if (modifiers != null && !modifiers.isEmpty()) {
                     for (Attribute attribute : modifiers.keySet()) {
-                        meta.removeAttributeModifier(attribute);
+                        if (meta.removeAttributeModifier(attribute) != null) {
+                            removedAny = true;
+                        }
                     }
                 }
             }
+            return removedAny;
         } else {
             // new version, remove all bump attribute modifiers
             Multimap<Attribute, AttributeModifier> modifierMap = meta.getAttributeModifiers();
-            if (modifierMap != null && !modifierMap.isEmpty()) {
-                // Create a list of modifiers to remove to avoid ConcurrentModificationException
-                List<AttributeModifier> modifiersToRemove = new ArrayList<>();
+            if (modifierMap == null || modifierMap.isEmpty()) {
+                Bump.getInstance().getLogger().log(Level.INFO, "No attribute modifiers found on item");
+                return true; // No modifiers to remove is considered success
+            }
+            
+            boolean removedAny = false;
+            // Create a list of modifiers to remove to avoid ConcurrentModificationException
+            List<AttributeModifier> modifiersToRemove = new ArrayList<>();
+            
+            for (Map.Entry<Attribute, AttributeModifier> entry : modifierMap.entries()) {
+                AttributeModifier modifier = entry.getValue();
+                Attribute attribute = entry.getKey();
                 
-                for (Map.Entry<Attribute, AttributeModifier> entry : modifierMap.entries()) {
-                    AttributeModifier modifier = entry.getValue();
-                    
-                    // 1.21.8+ 使用 NamespacedKey 而不是字符串名称
-                    NamespacedKey key = modifier.getKey();
-                    
-                    // 尝试通过key获取AppraiseType
-                    AppraiseType type = null;
-                    if (key != null) {
-                        type = AppraiseType.getByKey(key);
-                    }
-                    
-                    // 如果通过key没有找到，尝试向后兼容：从名称解析（旧版本可能还在用名称存储）
-                    if (type == null) {
-                        try {
-                            NamespacedKey legacyKey = NamespacedKey.fromString(modifier.getName());
-                            type = AppraiseType.getByKey(legacyKey);
-                        } catch (IllegalArgumentException e) {
-                            // 名称不是有效的 NamespacedKey 格式，跳过此修饰符
-                        }
-                    }
-                    
-                    if (type != null) {
-                        modifiersToRemove.add(modifier);
+                Bump.getInstance().getLogger().log(Level.INFO, "Found modifier: " + modifier.getName() + 
+                    " with key: " + (modifier.getKey() != null ? modifier.getKey().toString() : "null") +
+                    " on attribute: " + attribute);
+                
+                // 1.21.8+ 使用 NamespacedKey 而不是字符串名称
+                NamespacedKey key = modifier.getKey();
+                AppraiseType type = null;
+                
+                // 首先尝试通过key获取AppraiseType
+                if (key != null) {
+                    type = AppraiseType.getByKey(key);
+                    Bump.getInstance().getLogger().log(Level.INFO, "Trying to find AppraiseType by key: " + key + " -> " + (type != null ? "found" : "not found"));
+                }
+                
+                // 如果通过key没有找到，尝试向后兼容：从名称解析（旧版本可能还在用名称存储）
+                if (type == null) {
+                    try {
+                        NamespacedKey legacyKey = NamespacedKey.fromString(modifier.getName());
+                        type = AppraiseType.getByKey(legacyKey);
+                        Bump.getInstance().getLogger().log(Level.INFO, "Trying to find AppraiseType by name: " + modifier.getName() + " -> " + (type != null ? "found" : "not found"));
+                    } catch (IllegalArgumentException e) {
+                        // 名称不是有效的 NamespacedKey 格式，跳过此修饰符
+                        Bump.getInstance().getLogger().log(Level.INFO, "Modifier name is not a valid NamespacedKey: " + modifier.getName());
                     }
                 }
                 
-                // Remove all identified modifiers
-                for (AttributeModifier modifier : modifiersToRemove) {
-                    for (Attribute attribute : modifierMap.keySet()) {
-                        meta.removeAttributeModifier(attribute, modifier);
+                // 额外的检查：如果以上方法都失败，检查修饰符名称是否包含"bump"或其他标识符
+                if (type == null && modifier.getName().toLowerCase().contains("bump")) {
+                    Bump.getInstance().getLogger().log(Level.INFO, "Modifier name contains 'bump', assuming it's a bump modifier: " + modifier.getName());
+                    modifiersToRemove.add(modifier);
+                } else if (type != null) {
+                    modifiersToRemove.add(modifier);
+                }
+            }
+            
+            // Remove all identified modifiers
+            for (AttributeModifier modifier : modifiersToRemove) {
+                for (Attribute attribute : modifierMap.keySet()) {
+                    if (meta.removeAttributeModifier(attribute, modifier)) {
+                        removedAny = true;
+                        Bump.getInstance().getLogger().log(Level.INFO, "Successfully removed modifier: " + modifier.getName());
                     }
                 }
             }
+            
+            return removedAny || modifiersToRemove.isEmpty();
         }
     }
 }
