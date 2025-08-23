@@ -101,12 +101,14 @@ public final class AppraiseResult {
                 // Check if the material is applicable for slot
                 BumpTag tag = BumpTag.getTag(slot.name() + "_SLOT");
                 if (tag.isTagged(material)) {
+                    // 使用预定义的EquipmentSlotGroup常量
+                    EquipmentSlotGroup slotGroup = getSlotGroup(slot);
                     // 使用新的非弃用构造函数
                     AttributeModifier modifier = new AttributeModifier(
                         appraiseType.getKey(), // NamespacedKey
                         entry.getValue(),      // amount
                         AppraiseUtils.getOperation(attr), // operation
-                        EquipmentSlotGroup.of(slot)      // slot group
+                        slotGroup             // slot group
                     );
                     meta.addAttributeModifier(attr, modifier);
                 }
@@ -135,6 +137,28 @@ public final class AppraiseResult {
         PersistentDataAPI.setByte(meta, Keys.APPRAISE_VERSION, (byte) 2);
 
         itemStack.setItemMeta(meta);
+    }
+
+    /**
+     * 根据EquipmentSlot获取对应的EquipmentSlotGroup常量
+     */
+    private EquipmentSlotGroup getSlotGroup(EquipmentSlot slot) {
+        switch (slot) {
+            case HAND:
+                return EquipmentSlotGroup.HAND;
+            case OFF_HAND:
+                return EquipmentSlotGroup.OFFHAND;
+            case FEET:
+                return EquipmentSlotGroup.FEET;
+            case LEGS:
+                return EquipmentSlotGroup.LEGS;
+            case CHEST:
+                return EquipmentSlotGroup.CHEST;
+            case HEAD:
+                return EquipmentSlotGroup.HEAD;
+            default:
+                return EquipmentSlotGroup.ANY;
+        }
     }
 
     /**
