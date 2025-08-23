@@ -96,10 +96,14 @@ public final class AppraiseUtils {
     public static AttributeModifier.Operation getOperation(@Nonnull Attribute attribute) {
         Preconditions.checkArgument(attribute != null, "Attribute cannot be null");
 
-        return switch (attribute) {
-            case Attribute.MOVEMENT_SPEED, Attribute.JUMP_STRENGTH -> AttributeModifier.Operation.ADD_SCALAR;
-            default -> AttributeModifier.Operation.ADD_NUMBER;
-        };
+
+        String key = attribute.getKeyOrThrow().getKey();
+        
+        if (key.equals("generic.movement_speed") || key.equals("horse.jump_strength")) {
+            return AttributeModifier.Operation.ADD_SCALAR;
+        }
+        
+        return AttributeModifier.Operation.ADD_NUMBER;
     }
 
     @Nonnull

@@ -11,9 +11,11 @@ import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.EquipmentSlotGroup;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
@@ -100,8 +102,22 @@ public final class AppraiseResult {
                 // Check if the material is applicable for slot
                 BumpTag tag = BumpTag.getTag(slot.name() + "_SLOT");
                 if (tag.isTagged(material)) {
+                    // Create a unique key for this modifier
+                    NamespacedKey modifierKey = new NamespacedKey(
+                        Bump.getInstance(), 
+                        "appraise_" + UUID.randomUUID().toString()
+                    );
+                    
+                    // Convert EquipmentSlot to EquipmentSlotGroup
+                    EquipmentSlotGroup slotGroup = slot.getSlotGroup();
+                    
                     meta.addAttributeModifier(attr,
-                        new AttributeModifier(UUID.randomUUID(), appraiseType.getKey().toString(), entry.getValue(), AppraiseUtils.getOperation(attr), slot)
+                        new AttributeModifier(
+                            modifierKey,
+                            entry.getValue(),
+                            AppraiseUtils.getOperation(attr),
+                            slotGroup
+                        )
                     );
                 }
             }
