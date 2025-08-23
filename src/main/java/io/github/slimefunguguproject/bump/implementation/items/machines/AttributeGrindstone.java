@@ -118,6 +118,8 @@ public final class AttributeGrindstone extends SimpleMenuBlock {
 
     private void clearAttributes(@Nonnull ItemStack itemStack) {
         ItemMeta meta = itemStack.getItemMeta();
+        if (meta == null) return;
+        
         // check the appraising version
         byte version = PersistentDataAPI.getByte(meta, Keys.APPRAISE_VERSION, (byte) 1);
 
@@ -169,25 +171,40 @@ public final class AttributeGrindstone extends SimpleMenuBlock {
         } else {
             // new version, remove all bump attribute modifiers
             Multimap<Attribute, AttributeModifier> modifierMap = meta.getAttributeModifiers();
-            if (modifierMap != null) {
+            if (modifierMap != null && !modifierMap.isEmpty()) {
+                // Create a list of modifiers to remove to avoid ConcurrentModificationException
+                List<AttributeModifier> modifiersToRemove = new ArrayList<>();
+                
                 for (Map.Entry<Attribute, AttributeModifier> entry : modifierMap.entries()) {
-                    Attribute attribute = entry.getKey();
                     AttributeModifier modifier = entry.getValue();
                     
                     // 1.21.8+ 使用 NamespacedKey 而不是字符串名称
                     NamespacedKey key = modifier.getKey();
                     
-                    // 向后兼容：如果 key 为空（旧版本），尝试从名称解析
-                    if (key == null) {
+                    // 尝试通过key获取AppraiseType
+                    AppraiseType type = null;
+                    if (key != null) {
+                        type = AppraiseType.getByKey(key);
+                    }
+                    
+                    // 如果通过key没有找到，尝试向后兼容：从名称解析（旧版本可能还在用名称存储）
+                    if (type == null) {
                         try {
-                            key = NamespacedKey.fromString(modifier.getName());
+                            NamespacedKey legacyKey = NamespacedKey.fromString(modifier.getName());
+                            type = AppraiseType.getByKey(legacyKey);
                         } catch (IllegalArgumentException e) {
                             // 名称不是有效的 NamespacedKey 格式，跳过此修饰符
-                            continue;
                         }
                     }
                     
-                    if (key != null && AppraiseType.getByKey(key) != null) {
+                    if (type != null) {
+                        modifiersToRemove.add(modifier);
+                    }
+                }
+                
+                // Remove all identified modifiers
+                for (AttributeModifier modifier : modifiersToRemove) {
+                    for (Attribute attribute : modifierMap.keySet()) {
                         meta.removeAttributeModifier(attribute, modifier);
                     }
                 }
