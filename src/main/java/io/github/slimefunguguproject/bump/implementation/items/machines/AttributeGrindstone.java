@@ -15,6 +15,7 @@ import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.EquipmentSlotGroup;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
@@ -110,7 +111,7 @@ public final class AttributeGrindstone extends SimpleMenuBlock {
         blockMenu.replaceExistingItem(getInputSlot(), null);
         blockMenu.pushItem(output, getOutputSlot());
 
-        setCharge(blockMenu.getLocation(), 0);
+        setCharge(blockMenu.getLocation(), charge - ENERGY_CONSUMPTION);
         Bump.getLocalization().sendMessage(p, "machine.attribute-grindstone.success");
         BumpSound.ATTRIBUTE_GRINDSTONE_SUCCEED.playFor(p);
     }
@@ -156,14 +157,36 @@ public final class AttributeGrindstone extends SimpleMenuBlock {
                     meta.removeAttributeModifier(slot);
                 }
             }
+            // Additional cleanup for any remaining modifiers
+            if (meta.hasAttributeModifiers()) {
+                Multimap<Attribute, AttributeModifier> modifiers = meta.getAttributeModifiers();
+                if (modifiers != null) {
+                    for (Attribute attribute : modifiers.keySet()) {
+                        meta.removeAttributeModifier(attribute);
+                    }
+                }
+            }
         } else {
-            // new version (for now), remove all bump attribute modifiers
+            // new version, remove all bump attribute modifiers
             Multimap<Attribute, AttributeModifier> modifierMap = meta.getAttributeModifiers();
             if (modifierMap != null) {
                 for (Map.Entry<Attribute, AttributeModifier> entry : modifierMap.entries()) {
                     Attribute attribute = entry.getKey();
                     AttributeModifier modifier = entry.getValue();
-                    NamespacedKey key = NamespacedKey.fromString(modifier.getName(), Bump.getInstance());
+                    
+                    // 1.21.8+ 使用 NamespacedKey 而不是字符串名称
+                    NamespacedKey key = modifier.getKey();
+                    
+                    // 向后兼容：如果 key 为空（旧版本），尝试从名称解析
+                    if (key == null) {
+                        try {
+                            key = NamespacedKey.fromString(modifier.getName());
+                        } catch (IllegalArgumentException e) {
+                            // 名称不是有效的 NamespacedKey 格式，跳过此修饰符
+                            continue;
+                        }
+                    }
+                    
                     if (key != null && AppraiseType.getByKey(key) != null) {
                         meta.removeAttributeModifier(attribute, modifier);
                     }
